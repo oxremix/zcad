@@ -45,17 +45,18 @@ uses
   //DOM,XMLRead,XMLWrite,XMLCfg,
   //RegExpr;
   //** открываем нужный нам xlsx файл
-procedure openXLSXFile(pathFile:string);
+function openXLSXFile(pathFile:string):boolean;
   //** Получаем активную книгу
-procedure activeXLSXWorkbook();
+function activeXLSXWorkbook:boolean;
   //** Получаем активный лист в активной книге
-procedure activeWorkSheetXLSX;
+function activeWorkSheetXLSX:boolean;
 //** Получаем имя активного листа в активной книге
 function getActiveWorkSheetName:string;
   //** сохраняем xlsx файл
-procedure saveXLSXFile(pathFile:string);
+function saveXLSXFile(pathFile:string):boolean;
   //** очищаем память
 procedure destroyWorkbook();
+procedure activeDestroyWorkbook();
   //** копуруем лист с кодовым именем и присваиваем ему правильное имя
 procedure copyWorksheetName(codeSheet:string;nameSheet:string);
   //** удалить строчку
@@ -84,44 +85,85 @@ var
   ActiveWorkSheet: OleVariant;
   iRangeFind: OleVariant;
 
-procedure openXLSXFile(pathFile:string);
+function openXLSXFile(pathFile:string):boolean;
 //var
 begin
-  Excel := CreateOleObject('Excel.Application');
-  BasicWorkbook:=Excel.Workbooks.Open(WideString(pathFile));
+  result:=false;
+  try
+    Excel := CreateOleObject('Excel.Application');
+    BasicWorkbook:=Excel.Workbooks.Open(WideString(pathFile));
+    result:=true;
+  except
+    ZCMsgCallBackInterface.TextMessage('ОШИБКА. ПРОГРАММА EXCEL НЕ УСТАНОВЛЕНА',TMWOHistoryOut);
+  end;
 end;
-procedure activeXLSXWorkbook;
+function activeXLSXWorkbook:boolean;
 //var
 begin
   //Ищем запущеный экземпляр Excel, если он не найден, вызывается исключение
-  Excel := GetActiveOleObject('Excel.Application');
-  BasicWorkbook:=Excel.ActiveWorkbook;
-  ZCMsgCallBackInterface.TextMessage('Доступ получен к книге = ' + BasicWorkbook.Name,TMWOHistoryOut);
+  result:=false;
+  try
+    Excel := GetActiveOleObject('Excel.Application');
+    BasicWorkbook:=Excel.ActiveWorkbook;
+    ZCMsgCallBackInterface.TextMessage('Доступ получен к книге = ' + BasicWorkbook.Name,TMWOHistoryOut);
+    result:=true;
+  except
+    ZCMsgCallBackInterface.TextMessage('ОШИБКА. НЕТ АКТИВНОЙ ОТКРЫТОЙ КНИГИ В EXCEL!!!',TMWOHistoryOut);
+  end;
 end;
-procedure activeWorkSheetXLSX;
+function activeWorkSheetXLSX:boolean;
 //var
 begin
-  ActiveWorkSheet:=Excel.ActiveSheet;
-  //ActiveWorkSheet:=BasicWorkbook.ActiveWorksheet;
-  ZCMsgCallBackInterface.TextMessage('Открыт лист = ' + ActiveWorkSheet.Name,TMWOHistoryOut);
+  result:=false;
+  try
+    ActiveWorkSheet:=Excel.ActiveSheet;
+    //ActiveWorkSheet:=BasicWorkbook.ActiveWorksheet;
+    ZCMsgCallBackInterface.TextMessage('Открыт лист = ' + ActiveWorkSheet.Name,TMWOHistoryOut);
+    result:=true;
+  except
+    ZCMsgCallBackInterface.TextMessage('ОШИБКА. НЕТ АКТИВНОЙ ОТКРЫТОЙ КНИГИ В EXCEL!!!',TMWOHistoryOut);
+  end;
 end;
 function getActiveWorkSheetName:string;
 //var
 begin
-  ActiveWorkSheet:=Excel.ActiveSheet;
-  result:=ActiveWorkSheet.Name;
-  //ActiveWorkSheet:=BasicWorkbook.ActiveWorksheet;
-  ZCMsgCallBackInterface.TextMessage('Открыт лист = ' + result,TMWOHistoryOut);
+  result:='nil';
+  try
+    ActiveWorkSheet:=Excel.ActiveSheet;
+    result:=ActiveWorkSheet.Name;
+    //ActiveWorkSheet:=BasicWorkbook.ActiveWorksheet;
+    ZCMsgCallBackInterface.TextMessage('Открыт лист = ' + result,TMWOHistoryOut);
+  except
+    ZCMsgCallBackInterface.TextMessage('ОШИБКА. НЕТ АКТИВНОЙ ОТКРЫТОЙ КНИГИ В EXCEL!!!',TMWOHistoryOut);
+  end;
 end;
-procedure saveXLSXFile(pathFile:string);
+function saveXLSXFile(pathFile:string):boolean;
 //var
 begin
   BasicWorkbook.WorkSheets[1].Activate;
-  BasicWorkbook.SaveAs(WideString(pathFile));
+  result:=false;
+  try
+    //Excel.DisplayAlerts := False;
+    BasicWorkbook.SaveAs(FileName:=WideString(pathFile));
+    result:=true;
+    //Excel.DisplayAlerts := True;
+  except
+    ZCMsgCallBackInterface.TextMessage('ОШИБКА! СОХРАНЕНИЕ ОТМЕНЕНО ИЛИ ФАЙЛ НЕ ДОСТУПЕН!',TMWOHistoryOut);
+  end;
 end;
 procedure destroyWorkbook();
 begin
+  BasicWorkbook.Close(Savechanges:=false);
+  BasicWorkbook:=Unassigned;
   Excel.Quit;
+  Excel := Unassigned;
+end;
+procedure activeDestroyWorkbook();
+begin
+  iRangeFind:=Unassigned;
+  ActiveWorkSheet:=Unassigned;
+  BasicWorkbook:=Unassigned;
+  Excel := Unassigned;
 end;
 procedure sheetVisibleOff(partNameSheet:string);
 var
@@ -144,9 +186,12 @@ var
   i,numsheet:integer;
 begin
   //ZCMsgCallBackInterface.TextMessage('имя лист = ' + nameSheet,TMWOHistoryOut);
-  BasicWorkbook.WorkSheets(codeSheet).Copy(EmptyParam,BasicWorkbook.WorkSheets[BasicWorkbook.WorkSheets.Count]);
-  BasicWorkbook.WorkSheets[BasicWorkbook.WorkSheets.Count].Name:=nameSheet;
-
+  try
+    BasicWorkbook.WorkSheets(codeSheet).Copy(EmptyParam,BasicWorkbook.WorkSheets[BasicWorkbook.WorkSheets.Count]);
+    BasicWorkbook.WorkSheets[BasicWorkbook.WorkSheets.Count].Name:=nameSheet;
+  except
+   ZCMsgCallBackInterface.TextMessage('ОШИБКА! procedure copyWorksheetName(codeSheet:string;nameSheet:string);',TMWOHistoryOut);
+  end;
   //numsheet:=-1;
   //for i:= 1 to BasicWorkbook.WorkSheets.count do
   //begin
